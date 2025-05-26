@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Echelon Form Checker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- MathJax CDN -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- math.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
+    <style>
+        canvas { border: 1px solid #ccc; }
+        .matrix-input { width: 60px; }
+        #explanation { min-height: 400px; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-6 flex flex-row space-x-6">
+        <!-- Left Side: Input, Display, Canvas, Result -->
+        <div class="w-2/3">
+            <h1 class="text-3xl font-bold text-center mb-6">Matrix Echelon Form Checker</h1>
+
+            <!-- Input Form -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <div class="flex space-x-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Rows (n):</label>
+                        <input type="number" id="rows" min="1" value="3" class="mt-1 block w-20 border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Columns (m):</label>
+                        <input type="number" id="cols" min="1" value="3" class="mt-1 block w-20 border-gray-300 rounded-md shadow-sm">
+                    </div>
+                    <button onclick="generateMatrixInput()" class="mt-6 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Generate Matrix</button>
+                </div>
+                <div id="matrix-input" class="grid gap-2"></div>
+                <button onclick="checkMatrix()" class="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Check Matrix</button>
+            </div>
+
+            <!-- Display Matrix with MathJax -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-xl font-semibold mb-4">Matrix Display</h2>
+                <div id="matrix-display" class="text-center">\[ A = \text{(Enter matrix to display)} \]</div>
+            </div>
+
+            <!-- Canvas Visualization -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h2 class="text-xl font-semibold mb-4">Matrix Visualization</h2>
+                <canvas id="matrix-canvas" width="300" height="200"></canvas>
+            </div>
+
+            <!-- Result -->
+            <div id="result" class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Result</h2>
+                <p id="result-text" class="text-gray-700">Enter a matrix and click "Check Matrix" to see the result.</p>
+            </div>
+        </div>
+
+        <!-- Right Side: Explanation -->
+        <div class="w-1/3">
+            <div id="explanation" class="bg-white p-6 rounded-lg shadow-md sticky top-6">
+                <h2 class="text-xl font-semibold mb-4">Explanation</h2>
+                <div id="explanation-text" class="text-gray-700">
+                    <p>Enter a matrix and click "Check Matrix" to see why it is classified as Row Echelon Form (REF), Reduced Row Echelon Form (RREF), or neither.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function generateMatrixInput() {
+            const rows = parseInt(document.getElementById('rows').value);
+            const cols = parseInt(document.getElementById('cols').value);
+            const matrixInput = document.getElementById('matrix-input');
+            matrixInput.innerHTML = '';
+            matrixInput.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    const input = document.createElement('input');
+                    input.type = 'number';
+                    input.className = 'matrix-input border-gray-300 rounded-md shadow-sm';
+                    input.id = `matrix-${i}-${j}`;
+                    input.value = 0;
+                    matrixInput.appendChild(input);
+                }
+            }
+        }
+
+        function getMatrix() {
+            const rows = parseInt(document.getElementById('rows').value);
+            const cols = parseInt(document.getElementById('cols').value);
+            const matrix = [];
+            for (let i = 0; i < rows; i++) {
+                const row = [];
+                for (let j = 0; j < cols; j++) {
+                    const value = parseFloat(document.getElementById(`matrix-${i}-${j}`).value) || 0;
+                    row.push(value);
+                }
+                matrix.push(row);
+            }
+            return matrix;
+        }
+
+        function displayMatrix(matrix) {
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            let latex = '\\[ A = \\begin{bmatrix} ';
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    latex += matrix[i][j];
+                    if (j < cols - 1) latex += ' & ';
+                }
+                if (i < rows - 1) latex += ' \\\\ ';
+            }
+            latex += ' \\end{bmatrix} \\]';
+            document.getElementById('matrix-display').innerHTML = latex;
+            MathJax.typeset();
+        }
+
+        function drawMatrixOnCanvas(matrix, leadingEntries) {
+            const canvas = document.getElementById('matrix-canvas');
+            const ctx = canvas.getContext('2d');
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            const cellSize = 40;
+            canvas.width = cols * cellSize + 20;
+            canvas.height = rows * cellSize + 20;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#000';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    const x = j * cellSize + 10;
+                    const y = i * cellSize + 10;
+                    ctx.strokeRect(x, y, cellSize, cellSize);
+                    const isLeading = leadingEntries.some(([r, c]) => r === i && c === j);
+                    if (isLeading) {
+                        ctx.fillStyle = '#ffcc00';
+                        ctx.fillRect(x, y, cellSize, cellSize);
+                        ctx.fillStyle = '#000';
+                    }
+                    ctx.fillText(matrix[i][j], x + cellSize / 2, y + cellSize / 2);
+                }
+            }
+        }
+
+        function findLeadingEntries(matrix) {
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            const leadingEntries = [];
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    if (math.abs(matrix[i][j]) > 1e-10) {
+                        leadingEntries.push([i, j]);
+                        break;
+                    }
+                }
+            }
+            return leadingEntries;
+        }
+
+        function isRowEchelonForm(matrix) {
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            let prevLeadingCol = -1;
+            const issues = [];
+
+            for (let i = 0; i < rows; i++) {
+                let leadingCol = -1;
+                for (let j = 0; j < cols; j++) {
+                    if (math.abs(matrix[i][j]) > 1e-10) {
+                        leadingCol = j;
+                        break;
+                    }
+                }
+                if (leadingCol === -1) {
+                    for (let j = 0; j < cols; j++) {
+                        if (math.abs(matrix[i][j]) > 1e-10) {
+                            issues.push(`Row ${i + 1} is not all zeros but has no leading non-zero entry.`);
+                            return { isREF: false, issues };
+                        }
+                    }
+                    continue;
+                }
+                if (leadingCol <= prevLeadingCol) {
+                    issues.push(`Leading entry in row ${i + 1} (column ${leadingCol + 1}) is not to the right of the leading entry in row ${i} (column ${prevLeadingCol + 1}).`);
+                    return { isREF: false, issues };
+                }
+                for (let k = i + 1; k < rows; k++) {
+                    if (math.abs(matrix[k][leadingCol]) > 1e-10) {
+                        issues.push(`Element at position (${k + 1}, ${leadingCol + 1}) below the leading entry in row ${i + 1} is non-zero (${matrix[k][leadingCol]}).`);
+                        return { isREF: false, issues };
+                    }
+                }
+                prevLeadingCol = leadingCol;
+            }
+            return { isREF: true, issues };
+        }
+
+        function isReducedRowEchelonForm(matrix) {
+            const refCheck = isRowEchelonForm(matrix);
+            if (!refCheck.isREF) return { isRREF: false, issues: refCheck.issues };
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            const issues = [];
+
+            for (let i = 0; i < rows; i++) {
+                let leadingCol = -1;
+                for (let j = 0; j < cols; j++) {
+                    if (math.abs(matrix[i][j]) > 1e-10) {
+                        leadingCol = j;
+                        if (math.abs(matrix[i][j] - 1) > 1e-10) {
+                            issues.push(`Leading entry in row ${i + 1} (position (${i + 1}, ${j + 1})) is ${matrix[i][j]}, not 1.`);
+                            return { isRREF: false, issues };
+                        }
+                        break;
+                    }
+                }
+                if (leadingCol === -1) {
+                    for (let j = 0; j < cols; j++) {
+                        if (math.abs(matrix[i][j]) > 1e-10) {
+                            issues.push(`Row ${i + 1} is not all zeros but has no leading non-zero entry.`);
+                            return { isRREF: false, issues };
+                        }
+                    }
+                    continue;
+                }
+                for (let k = 0; k < rows; k++) {
+                    if (k !== i && math.abs(matrix[k][leadingCol]) > 1e-10) {
+                        issues.push(`Element at position (${k + 1}, ${leadingCol + 1}) in the pivot column of row ${i + 1} is non-zero (${matrix[k][leadingCol]}).`);
+                        return { isRREF: false, issues };
+                    }
+                }
+            }
+            return { isRREF: true, issues };
+        }
+
+        function generateExplanation(isREF, isRREF, refIssues, rrefIssues, leadingEntries, matrix) {
+            let html = '<ul class="list-disc pl-5 space-y-2">';
+            
+            // Leading Entries Explanation
+            html += '<li><strong>Leading Entries (Highlighted in Yellow):</strong> These are the first non-zero entries in each non-zero row, as shown in the canvas visualization.</li>';
+            if (leadingEntries.length > 0) {
+                html += '<li>Found leading entries at positions: ';
+                leadingEntries.forEach(([r, c], index) => {
+                    html += `(${r + 1}, ${c + 1}) = ${matrix[r][c]}`;
+                    if (index < leadingEntries.length - 1) html += ', ';
+                });
+                html += '.</li>';
+            } else {
+                html += '<li>No leading entries found (matrix may be all zeros).</li>';
+            }
+
+            // REF and RREF Explanation
+            if (isRREF) {
+                html += '<li class="text-green-600">The matrix is in <strong>Reduced Row Echelon Form (RREF)</strong> because:</li>';
+                html += '<li>All rows containing non-zero elements have a leading entry of 1.</li>';
+                html += '<li>Each leading 1 is the only non-zero entry in its column.</li>';
+                html += '<li>The matrix satisfies Row Echelon Form conditions (staircase structure, zeros below leading entries, zero rows at bottom).</li>';
+            } else if (isREF) {
+                html += '<li class="text-blue-600">The matrix is in <strong>Row Echelon Form (REF)</strong> because:</li>';
+                html += '<li>All rows containing non-zero elements have a leading non-zero entry.</li>';
+                html += '<li>Leading entries form a staircase structure (each is to the right of the one above).</li>';
+                html += '<li>All elements below each leading entry are zero.</li>';
+                html += '<li>Zero rows, if any, are at the bottom.</li>';
+                html += '<li class="text-red-600">It is <strong>not RREF</strong> because:</li>';
+                rrefIssues.forEach(issue => {
+                    html += `<li>${issue}</li>`;
+                });
+            } else {
+                html += '<li class="text-red-600">The matrix is <strong>not in Row Echelon Form (REF)</strong> or RREF because:</li>';
+                refIssues.forEach(issue => {
+                    html += `<li>${issue}</li>`;
+                });
+            }
+            html += '</ul>';
+            document.getElementById('explanation-text').innerHTML = html;
+        }
+
+        function checkMatrix() {
+            const matrix = getMatrix();
+            displayMatrix(matrix);
+
+            const refCheck = isRowEchelonForm(matrix);
+            const rrefCheck = isReducedRowEchelonForm(matrix);
+            const isREF = refCheck.isREF;
+            const isRREF = rrefCheck.isRREF;
+            let resultText = '';
+            if (isRREF) {
+                resultText = 'This matrix is in <strong>Reduced Row Echelon Form (RREF)</strong>.';
+            } else if (isREF) {
+                resultText = 'This matrix is in <strong>Row Echelon Form (REF)</strong> but not in RREF.';
+            } else {
+                resultText = 'This matrix is <strong>not in Row Echelon Form (REF)</strong> or RREF.';
+            }
+            document.getElementById('result-text').innerHTML = resultText;
+
+            const leadingEntries = findLeadingEntries(matrix);
+            generateExplanation(isREF, isRREF, refCheck.issues, rrefCheck.issues, leadingEntries, matrix);
+
+            drawMatrixOnCanvas(matrix, leadingEntries);
+        }
+
+        // Initialize with default 3x3 matrix
+        generateMatrixInput();
+    </script>
+</body>
+</html>
