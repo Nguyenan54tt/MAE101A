@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quiz Ma trận Bậc thang</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-6">
+    <div class="max-w-4xl w-full bg-white p-6 rounded-2xl shadow-2xl grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Khối trái: Quiz -->
+        <div>
+            <h1 class="text-2xl font-bold mb-4 text-blue-600 text-center">Quiz: Nhận diện Ma trận Bậc thang</h1>
+            <div class="flex gap-2 justify-center mb-4">
+                <input type="number" id="rows" min="2" max="6" value="3" class="border rounded px-2 py-1 w-16" placeholder="Số hàng">
+                <input type="number" id="cols" min="2" max="6" value="4" class="border rounded px-2 py-1 w-16" placeholder="Số cột">
+                <button id="btnCreate" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition">Tạo Ma Trận</button>
+            </div>
+            <div id="latex" class="my-4 flex justify-center text-xl"></div>
+            <div class="flex gap-3 justify-center mb-4">
+                <button id="btnYes" class="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600 transition">Đây là ma trận bậc thang</button>
+                <button id="btnNo" class="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition">Đây không phải ma trận bậc thang</button>
+            </div>
+            <div id="result" class="text-center text-lg font-semibold mb-2"></div>
+            <div class="flex justify-center">
+                <button id="btnAgain" class="bg-gray-300 text-gray-900 px-4 py-2 rounded hover:bg-gray-400 hidden">Tạo lại Ma Trận</button>
+            </div>
+        </div>
+        <!-- Khối phải: Giải thích -->
+        <div>
+            <h2 class="text-xl font-bold text-blue-700 mb-3">Giải thích</h2>
+            <div id="explanation" class="bg-gray-50 rounded-xl shadow p-4 text-gray-800 min-h-[120px] text-base"></div>
+            <div class="mt-6">
+                <h3 class="font-semibold mb-2 text-blue-700">Quy tắc ma trận bậc thang</h3>
+                <ul class="list-disc pl-6 text-sm text-gray-700">
+                    <li>Hàng toàn 0 (nếu có) nằm dưới các hàng khác.</li>
+                    <li>Phần tử khác 0 đầu tiên của mỗi hàng nằm lệch phải so với hàng trên.</li>
+                    <li>Các phần tử dưới mỗi phần tử khác 0 đầu tiên đều là 0.</li>
+                </ul>
+                <h3 class="font-semibold mt-4 mb-2 text-blue-700">Quy tắc ma trận bậc thang rút gọn</h3>
+                <ul class="list-disc pl-6 text-sm text-gray-700">
+                    <li>Thỏa mãn tất cả quy tắc của ma trận bậc thang.</li>
+                    <li>Mỗi phần tử khác 0 đầu tiên (leading entry) bằng 1.</li>
+                    <li>Cột chứa leading entry chỉ có leading entry khác 0.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+<script>
+let quizMatrix = null;
+let quizIsRowEchelon = false;
+let quizIsReducedRowEchelon = false;
+let answered = false;
+let quizAnalysis = null;
+
+function randomInt(a, b) {
+    return a + Math.floor(Math.random() * (b - a + 1));
+}
+
+// Sinh ma trận bậc thang
+function generateRowEchelonMatrix(rows, cols) {
+    let mat = Array.from({length: rows}, () => Array(cols).fill(0));
+    let pivot = -1;
+    for (let i = 0; i < rows; i++) {
+        let shift = randomInt(0, 1);
+        let j = pivot + 1 + shift;
+        if (j >= cols) break;
+        for (let k = 0; k < cols; k++) {
+            if (k < j) mat[i][k] = 0;
+            else if (k === j) mat[i][k] = randomInt(1, 5);
+            else mat[i][k] = randomInt(-3, 4);
+        }
+        for (let t = i + 1; t < rows; t++) mat[t][j] = 0;
+        pivot = j;
+    }
+    let numZeroRows = randomInt(0, Math.max(0, rows - 2));
+    for (let i = rows - 1; numZeroRows > 0 && i >= 0; i--, numZeroRows--) {
+        mat[i] = Array(cols).fill(0);
+    }
+    return mat;
+}
+
+// Sinh ma trận bậc thang rút gọn
+function generateReducedRowEchelonMatrix(rows, cols) {
+    let mat = Array.from({length: rows}, () => Array(cols).fill(0));
+    let pivot = -1;
+    for (let i = 0; i < rows; i++) {
+        let shift = randomInt(0, 1);
+        let j = pivot + 1 + shift;
+        if (j >= cols) break;
+        for (let k = 0; k < cols; k++) {
+            if (k < j) mat[i][k] = 0;
+            else if (k === j) mat[i][k] = 1; // Leading entry là 1
+            else mat[i][k] = randomInt(0, 4);
+        }
+        for (let t = 0; t < rows; t++) {
+            if (t !== i) mat[t][j] = 0; // Cột pivot chỉ có leading entry khác 0
+        }
+        pivot = j;
+    }
+    let numZeroRows = randomInt(0, Math.max(0, rows - 2));
+    for (let i = rows - 1; numZeroRows > 0 && i >= 0; i--, numZeroRows--) {
+        mat[i] = Array(cols).fill(0);
+    }
+    return mat;
+}
+
+// Phá ma trận bậc thang thành không bậc thang
+function generateNonRowEchelonMatrix(rows, cols) {
+    let mat = generateRowEchelonMatrix(rows, cols);
+    let type = randomInt(1, 3);
+    if (type === 1 && rows > 1) {
+        let i = randomInt(0, rows - 2), j = randomInt(i + 1, rows - 1);
+        [mat[i], mat[j]] = [mat[j], mat[i]];
+    } else if (type === 2 && rows > 1) {
+        let zeroRow = Array(cols).fill(0);
+        mat.splice(0, 0, zeroRow);
+        mat.pop();
+    } else {
+        for (let i = 0; i < rows - 1; i++) {
+            let row = mat[i];
+            let pivot = row.findIndex(x => Math.abs(x) > 1e-8);
+            if (pivot !== -1 && i + 1 < rows) {
+                mat[i + 1][pivot] = randomInt(1, 5);
+                break;
+            }
+        }
+    }
+    return mat;
+}
+
+// Kiểm tra bậc thang và bậc thang rút gọn + giải thích
+function analyzeRowEchelon(matrix) {
+    let leadingCol = -1;
+    let steps = [];
+    let isREF = true;
+    let isRREF = true;
+
+    for (let i = 0; i < matrix.length; i++) {
+        let row = matrix[i];
+        let firstNonZero = -1;
+        for (let j = 0; j < row.length; j++) {
+            if (Math.abs(row[j]) > 1e-8) {
+                firstNonZero = j;
+                break;
+            }
+        }
+        if (firstNonZero === -1) {
+            for (let k = i + 1; k < matrix.length; k++) {
+                let nonZero = matrix[k].some(x => Math.abs(x) > 1e-8);
+                if (nonZero) {
+                    steps.push(`Hàng ${i+1} là hàng 0 nhưng phía dưới (hàng ${k+1}) lại có hàng không phải 0. <b>Vi phạm quy tắc</b>.`);
+                    return { isRowEchelon: false, isReducedRowEchelon: false, steps };
+                }
+            }
+            steps.push(`Hàng ${i+1} là hàng 0 và nằm ở phía dưới cùng (đúng quy tắc).`);
+        } else {
+            if (firstNonZero <= leadingCol) {
+                steps.push(`Hàng ${i+1} có phần tử khác 0 đầu tiên ở cột ${firstNonZero+1}, không lệch phải so với hàng trên (ở cột ${leadingCol+1}). <b>Vi phạm quy tắc</b>.`);
+                return { isRowEchelon: false, isReducedRowEchelon: false, steps };
+            }
+            for (let k = i + 1; k < matrix.length; k++) {
+                if (Math.abs(matrix[k][firstNonZero]) > 1e-8) {
+                    steps.push(`Cột ${firstNonZero+1} có phần tử khác 0 ở hàng ${k+1} phía dưới pivot ở hàng ${i+1}. <b>Vi phạm quy tắc</b>.`);
+                    return { isRowEchelon: false, isReducedRowEchelon: false, steps };
+                }
+            }
+            // Kiểm tra RREF: leading entry phải là 1
+            if (Math.abs(matrix[i][firstNonZero] - 1) > 1e-8) {
+                steps.push(`Hàng ${i+1} có leading entry ở cột ${firstNonZero+1} là ${matrix[i][firstNonZero]}, không phải 1. <b>Không thỏa mãn RREF</b>.`);
+                isRREF = false;
+            }
+            // Kiểm tra RREF: cột pivot chỉ có leading entry khác 0
+            for (let k = 0; k < matrix.length; k++) {
+                if (k !== i && Math.abs(matrix[k][firstNonZero]) > 1e-8) {
+                    steps.push(`Cột ${firstNonZero+1} có phần tử khác 0 ở hàng ${k+1} ngoài leading entry ở hàng ${i+1}. <b>Không thỏa mãn RREF</b>.`);
+                    isRREF = false;
+                }
+            }
+            steps.push(`Hàng ${i+1} có phần tử khác 0 đầu tiên ở cột ${firstNonZero+1}, đúng quy tắc (lệch phải so với hàng trên).`);
+            leadingCol = firstNonZero;
+        }
+    }
+    if (isREF && isRREF) {
+        steps.push(`<b>Kết luận:</b> Ma trận này là <span class="text-green-600 font-bold">Bậc thang rút gọn</span>.`);
+    } else if (isREF) {
+        steps.push(`<b>Kết luận:</b> Ma trận này là <span class="text-blue-600 font-bold">Bậc thang</span> nhưng không phải Bậc thang rút gọn.`);
+    } else {
+        steps.push(`<b>Kết luận:</b> Ma trận này <span class="text-red-600 font-bold">không phải Bậc thang hoặc Bậc thang rút gọn</span>.`);
+    }
+    return { isRowEchelon: isREF, isReducedRowEchelon: isRREF, steps };
+}
+
+// Hiển thị ma trận bằng LaTeX
+function displayLatex(matrix, elementId, label) {
+    let latex = `\\[ ${label} = \\begin{pmatrix} `;
+    latex += matrix.map(row => row.map(x => x.toFixed(2).replace(/\.00$/, '')).join(' & ')).join('\\\\');
+    latex += '\\end{pmatrix}\\]';
+    document.getElementById(elementId).innerHTML = latex;
+    if (window.MathJax) MathJax.typesetPromise();
+}
+
+// Hiển thị giải thích
+function showExplanation(analysis) {
+    let html = '<ol class="list-decimal pl-4 space-y-1">';
+    for (let s of analysis.steps) {
+        html += `<li>${s}</li>`;
+    }
+    html += '</ol>';
+    document.getElementById('explanation').innerHTML = html;
+}
+
+// Tạo ma trận quiz
+function generateQuizMatrix() {
+    let rows = parseInt(document.getElementById('rows').value);
+    let cols = parseInt(document.getElementById('cols').value);
+    let type = randomInt(0, 2);
+    if (type === 0) {
+        quizMatrix = generateRowEchelonMatrix(rows, cols);
+    } else if (type === 1) {
+        quizMatrix = generateReducedRowEchelonMatrix(rows, cols);
+    } else {
+        quizMatrix = generateNonRowEchelonMatrix(rows, cols);
+    }
+    quizAnalysis = analyzeRowEchelon(quizMatrix);
+    quizIsRowEchelon = quizAnalysis.isRowEchelon;
+    quizIsReducedRowEchelon = quizAnalysis.isReducedRowEchelon;
+
+    // Hiển thị ma trận gốc
+    displayLatex(quizMatrix, 'latex', 'A');
+
+    document.getElementById('result').innerText = '';
+    document.getElementById('btnAgain').classList.add('hidden');
+    answered = false;
+    document.getElementById('explanation').innerHTML = '';
+}
+
+// Xử lý câu trả lời
+function answer(choice) {
+    if (answered) return;
+    let correct = (choice === quizAnalysis.isRowEchelon);
+    let resultDiv = document.getElementById('result');
+    if (correct) {
+        if (quizIsReducedRowEchelon) {
+            resultDiv.innerHTML = '<span class="text-green-600">Chính xác! 🎉 Ma trận này là <b>Bậc thang rút gọn</b>.</span>';
+        } else if (quizIsRowEchelon) {
+            resultDiv.innerHTML = '<span class="text-green-600">Chính xác! 🎉 Ma trận này là <b>Bậc thang</b> nhưng không phải Bậc thang rút gọn.</span>';
+        } else {
+            resultDiv.innerHTML = '<span class="text-green-600">Chính xác! 🎉 Ma trận này không phải là Bậc thang hoặc Bậc thang rút gọn.</span>';
+        }
+    } else {
+        resultDiv.innerHTML = '<span class="text-red-600">Chưa đúng rồi! 😥 Ma trận này ' + 
+            (quizIsReducedRowEchelon ? 'là <b>Bậc thang rút gọn</b>.' : 
+             quizIsRowEchelon ? 'là <b>Bậc thang</b> nhưng không phải Bậc thang rút gọn.' : 
+             'không phải là Bậc thang hoặc Bậc thang rút gọn.') + '</span>';
+    }
+    document.getElementById('btnAgain').classList.remove('hidden');
+    answered = true;
+    showExplanation(quizAnalysis);
+}
+
+// Sự kiện nút
+document.getElementById('btnCreate').onclick = generateQuizMatrix;
+document.getElementById('btnAgain').onclick = generateQuizMatrix;
+document.getElementById('btnYes').onclick = function() { answer(true); };
+document.getElementById('btnNo').onclick = function() { answer(false); };
+</script>
+</body>
+</html>
